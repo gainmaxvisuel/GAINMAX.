@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GainMax - Inscription</title>
+
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+</head>
+<body>
+
+<div class="container">
+  <h2>Créer un compte</h2>
+
+  <input type="text" id="nom" placeholder="Nom complet" required>
+  <input type="email" id="email" placeholder="Email" required>
+  <input type="password" id="password" placeholder="Mot de passe" required>
+  <input type="password" id="confirm" placeholder="Confirmer mot de passe" required>
+  <input type="text" id="parrain" placeholder="Code parrain (optionnel)">
+
+  <button onclick="register()">S'INSCRIRE</button>
+
+  <div id="message"></div>
+
+  <div style="text-align:center;margin-top:15px;">
+    Déjà un compte ? <a href="login.html">Connexion</a>
+  </div>
+</div>
+
+<script>
+const supabaseUrl = "https://iumxpxrkeimkvetqjuzh.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1bXhweHJrZWlta3ZldHFqdXpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3MDA5NjQsImV4cCI6MjA4NzI3Njk2NH0.ggjE7SBq20EZafLoD7PWTE-UJTxD-hTZoRcF2Bbr6pI";
+const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+/* Lire ?ref= automatiquement */
+window.onload = function(){
+  const params = new URLSearchParams(window.location.search);
+  const ref = params.get("ref");
+  if(ref){
+    document.getElementById("parrain").value = ref;
+  }
+};
+
+function generateCode(){
+  return "GAIN" + Math.floor(10000 + Math.random() * 90000);
+}
+
+async function register(){
+
+  const nom = document.getElementById("nom").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  const confirm = document.getElementById("confirm").value;
+  const parrain = document.getElementById("parrain").value.trim();
+  const message = document.getElementById("message");
+
+  message.innerHTML = "";
+
+  if(!nom || !email || !password){
+    message.innerHTML = "<div class='error'>Tous les champs sont obligatoires</div>";
+    return;
+  }
+
+  if(password !== confirm){
+    message.innerHTML = "<div class='error'>Les mots de passe ne correspondent pas</div>";
+    return;
+  }
+
+  const code_parrain = generateCode();
+
+  const { data, error } = await supabase
+    .from("users")
+    .insert([
+      {
+        nom: nom,
+        email: email,
+        password: password,
+        code_parrain: code_parrain,
+        parrain: parrain || null,
+        solde: 0
+      }
+    ])
+    .select();
+
+  if(error){
+    message.innerHTML = "<div class='error'>" + error.message + "</div>";
+    return;
+  }
+
+  /* Connexion automatique */
+  localStorage.setItem("user", JSON.stringify(data[0]));
+
+  /* Redirection officielle */
+  window.location.href = "dashboard.html";
+}
+</script>
+
+</body>
+</html>
