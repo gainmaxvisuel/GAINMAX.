@@ -1,0 +1,273 @@
+<!DOCTYPE html>  <html lang="fr">    <head>    
+<meta charset="UTF-8">    
+<meta name="viewport" content="width=device-width, initial-scale=1.0">    
+<title>Compte - GAINMAX</title>  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>  <style>    
+body{    
+margin:0;    
+font-family:Arial, sans-serif;    
+background:#F3F4F6;    
+padding-bottom:100px;    
+color:#111827;    
+}    .top{
+background:#1E3A8A;
+color:white;
+padding:20px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.card{
+background:white;
+margin:15px;
+padding:20px;
+border-radius:16px;
+box-shadow:0 4px 12px rgba(0,0,0,0.05);
+}
+
+.solde{
+font-size:30px;
+font-weight:bold;
+color:#1E3A8A;
+}
+
+.btn{
+background:#1E3A8A;
+color:white;
+border:none;
+padding:10px 15px;
+border-radius:8px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.claim-btn{
+background:#16A34A;
+color:white;
+border:none;
+padding:10px;
+border-radius:8px;
+margin-top:10px;
+width:100%;
+font-weight:bold;
+}
+
+.claim-btn:disabled{
+background:#9CA3AF;
+cursor:not-allowed;
+}
+
+.bottom-nav{
+position:fixed;
+bottom:0;
+width:100%;
+background:white;
+display:flex;
+justify-content:space-around;
+padding:12px 0;
+box-shadow:0 -2px 8px rgba(0,0,0,0.08);
+}
+
+.bottom-nav a{
+text-decoration:none;
+color:#1E3A8A;
+font-weight:bold;
+}
+</style>  </head>
+
+<body>  <div class="top">    
+<div>    
+<div id="userName">Utilisateur</div>    
+<div id="userId">ID: ******</div>    
+</div>    
+<button onclick="logout()" class="btn">Quitter</button>    
+</div>  <div class="card">    
+<div>Solde disponible</div>    
+<div class="solde" id="solde">0</div>    
+</div>  <div class="card">    
+<h3>Mes VIP actifs</h3>    
+<div id="vipContainer">Chargement...</div>    
+</div>  <div class="card">    
+<h3>Historique des transactions</h3>    
+<div id="historyContainer">Chargement...</div>    
+</div>  <div class="bottom-nav">    
+<a href="home.html">Accueil</a>    
+<a href="product.html">Produit</a>    
+<a href="team.html">Équipe</a>    
+<a href="account.html">Moi</a>    
+</div>  <script>    const supabaseClient = supabase.createClient(
+"https://hgtocdujbusilyfycxvx.supabase.co",
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhndG9jZHVqYnVzaWx5ZnljeHZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3Njc2MTAsImV4cCI6MjA4NzM0MzYxMH0.MKmNXPIX3lrJK8S2Vfm20wEOaDhvjBMag8CUQVebglE"
+);
+
+let currentUser;
+
+document.addEventListener("DOMContentLoaded", async()=>{
+
+const { data:{ session } } = await supabaseClient.auth.getSession();
+
+if(!session){
+window.location.href="index.html";
+return;
+}
+
+currentUser = session.user;
+
+loadProfile();
+loadVIP();
+loadHistory();
+
+});
+
+async function loadProfile(){
+
+const { data } = await supabaseClient
+.from("profiles")
+.select("*")
+.eq("id", currentUser.id)
+.single();
+
+document.getElementById("solde").innerText = data.solde + " XOF";
+document.getElementById("userName").innerText = data.nom;
+document.getElementById("userId").innerText = "ID: " + currentUser.id.slice(0,6)+"****";
+
+}
+
+async function loadVIP(){
+
+const { data:orders } = await supabaseClient
+.from("orders")
+.select("*")
+.eq("user_id", currentUser.id)
+.eq("is_active", true);
+
+if(!orders || orders.length===0){
+document.getElementById("vipContainer").innerHTML="Aucun VIP actif.";
+return;
+}
+
+let html="";
+
+orders.forEach(order=>{
+
+let now = new Date();
+let lastClaim = order.last_claim_at ? new Date(order.last_claim_at) : new Date(order.created_at);
+let nextClaim = new Date(lastClaim.getTime() + 246060*1000);
+
+let canClaim = now >= nextClaim;
+
+html+=`
+
+<div style="border:1px solid #E5E7EB;padding:15px;border-radius:12px;margin-bottom:15px;">    
+<p><strong>Produit :</strong> ${order.product_id}</p>    
+<p>Revenu journalier : ${order.daily_income} XOF</p>    
+<p>Réclamé : ${order.claimed_days}/60 jours</p>    
+<p>Prochaine réclamation : ${nextClaim.toLocaleString()}</p>    
+<button class="claim-btn"     
+${!canClaim ? "disabled" : ""}     
+onclick="claimIncome('${order.id}')">    
+${canClaim ? "Réclamer maintenant" : "Disponible dans 24h"}    
+</button>    
+</div>    
+`;    });
+
+document.getElementById("vipContainer").innerHTML=html;
+
+}
+
+async function claimIncome(orderId){
+
+const { data:order } = await supabaseClient
+.from("orders")
+.select("*")
+.eq("id",orderId)
+.single();
+
+let now = new Date();
+let lastClaim = order.last_claim_at ? new Date(order.last_claim_at) : new Date(order.created_at);
+let nextClaim = new Date(lastClaim.getTime() + 246060*1000);
+
+if(now < nextClaim){
+showMessage("La réclamation est disponible après 24 heures.","error");
+return;
+}
+
+const { data:profile } = await supabaseClient
+.from("profiles")
+.select("*")
+.eq("id",currentUser.id)
+.single();
+
+await supabaseClient.from("profiles")
+.update({
+solde: profile.solde + order.daily_income,
+total_income: profile.total_income + order.daily_income
+})
+.eq("id",currentUser.id);
+
+await supabaseClient.from("orders")
+.update({
+claimed_days: order.claimed_days + 1,
+claimed_amount: order.claimed_amount + order.daily_income,
+last_claim_at: new Date()
+})
+.eq("id",orderId);
+
+showMessage("Revenu journalier crédité avec succès.","success");
+
+loadProfile();
+loadVIP();
+
+}
+
+async function loadHistory(){
+
+const { data } = await supabaseClient
+.from("orders")
+.select("*")
+.eq("user_id", currentUser.id);
+
+if(!data || data.length===0){
+document.getElementById("historyContainer").innerHTML="Aucune transaction.";
+return;
+}
+
+let html="";
+
+data.forEach(o=>{
+html+=`
+
+<p>VIP ${o.product_id} - ${o.claimed_amount} XOF gagnés</p>    
+`;    
+});    document.getElementById("historyContainer").innerHTML=html;
+
+}
+
+function showMessage(message,type){
+
+let color = type==="success" ? "#16A34A" : "#DC2626";
+
+let div=document.createElement("div");
+div.style.position="fixed";
+div.style.top="20px";
+div.style.left="50%";
+div.style.transform="translateX(-50%)";
+div.style.background=color;
+div.style.color="white";
+div.style.padding="12px 20px";
+div.style.borderRadius="8px";
+div.innerText=message;
+
+document.body.appendChild(div);
+setTimeout(()=>{div.remove();},3000);
+
+}
+
+async function logout(){
+await supabaseClient.auth.signOut();
+window.location.href="index.html";
+}
+
+</script>  </body>
+
+</html> 

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inscription - GAINMAX</title>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial, sans-serif;
+    background:#F3F4F6;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+.card{
+    background:#FFFFFF;
+    padding:30px;
+    width:360px;
+    border-radius:12px;
+    box-shadow:0 5px 20px rgba(0,0,0,0.08);
+}
+h2{
+    text-align:center;
+    color:#1E3A8A;
+}
+input{
+    width:100%;
+    padding:12px;
+    margin-top:15px;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+button{
+    width:100%;
+    padding:12px;
+    margin-top:20px;
+    background:#1E3A8A;
+    color:white;
+    border:none;
+    border-radius:8px;
+    font-weight:bold;
+    cursor:pointer;
+}
+button:hover{
+    background:#3B82F6;
+}
+.link{
+    text-align:center;
+    margin-top:15px;
+}
+.link a{
+    color:#1E3A8A;
+    text-decoration:none;
+    font-weight:bold;
+}
+.error{
+    color:#DC2626;
+    text-align:center;
+    margin-top:10px;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+</head>
+<body>
+
+<div class="card">
+    <h2>Inscription</h2>
+    <div id="message"></div>
+
+    <input type="text" id="nom" placeholder="Nom complet">
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Mot de passe">
+    <input type="text" id="parrain" placeholder="Code parrain (optionnel)">
+
+    <button onclick="register()">S'inscrire</button>
+
+    <div class="link">
+        Déjà un compte ? <a href="index.html">Se connecter</a>
+    </div>
+</div>
+
+<script>
+const supabaseClient = supabase.createClient(
+    "https://hgtocdujbusilyfycxvx.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhndG9jZHVqYnVzaWx5ZnljeHZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3Njc2MTAsImV4cCI6MjA4NzM0MzYxMH0.MKmNXPIX3lrJK8S2Vfm20wEOaDhvjBMag8CUQVebglE"
+);
+
+function autoFillRef(){
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if(ref){
+        document.getElementById("parrain").value = ref;
+    }
+}
+autoFillRef();
+
+async function register(){
+    const nom = document.getElementById("nom").value;
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    const parrain = document.getElementById("parrain").value;
+    const message = document.getElementById("message");
+
+    message.innerHTML = "";
+
+    if(!nom || !email || !password){
+        message.innerHTML = "<div class='error'>Veuillez remplir tous les champs obligatoires</div>";
+        return;
+    }
+
+    const { data, error } = await supabaseClient.auth.signUp({
+        email: email,
+        password: password
+    });
+
+    if(error){
+        message.innerHTML = "<div class='error'>Erreur lors de l'inscription</div>";
+        return;
+    }
+
+    const user = data.user;
+
+    await supabaseClient.from("profiles").insert({
+        id: user.id,
+        nom: nom,
+        parrain_id: parrain || null,
+        solde: 0,
+        total_income: 0,
+        total_withdrawn: 0,
+        last_claim_at: null
+    });
+
+    window.location.href = "home.html";
+}
+</script>
+
+</body>
+</html>

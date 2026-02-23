@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connexion - GAINMAX</title>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial, sans-serif;
+    background:#F3F4F6;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+.card{
+    background:#FFFFFF;
+    padding:30px;
+    width:360px;
+    border-radius:12px;
+    box-shadow:0 5px 20px rgba(0,0,0,0.08);
+}
+h2{
+    text-align:center;
+    color:#1E3A8A;
+}
+input{
+    width:100%;
+    padding:12px;
+    margin-top:15px;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+button{
+    width:100%;
+    padding:12px;
+    margin-top:20px;
+    background:#1E3A8A;
+    color:white;
+    border:none;
+    border-radius:8px;
+    font-weight:bold;
+    cursor:pointer;
+}
+button:hover{
+    background:#3B82F6;
+}
+.link{
+    text-align:center;
+    margin-top:15px;
+}
+.link a{
+    color:#1E3A8A;
+    text-decoration:none;
+    font-weight:bold;
+}
+.error{
+    color:#DC2626;
+    text-align:center;
+    margin-top:10px;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+</head>
+<body>
+
+<div class="card">
+    <h2>Connexion</h2>
+    <div id="message"></div>
+
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Mot de passe">
+
+    <button onclick="login()">Se connecter</button>
+
+    <div class="link">
+        Pas de compte ? <a href="register.html">S'inscrire</a>
+    </div>
+</div>
+
+<script>
+const supabaseClient = supabase.createClient(
+    "https://hgtocdujbusilyfycxvx.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhndG9jZHVqYnVzaWx5ZnljeHZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3Njc2MTAsImV4cCI6MjA4NzM0MzYxMH0.MKmNXPIX3lrJK8S2Vfm20wEOaDhvjBMag8CUQVebglE"
+);
+
+async function login(){
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const message = document.getElementById("message");
+
+    message.innerHTML = "";
+
+    if(!email || !password){
+        message.innerHTML = "<div class='error'>Veuillez remplir tous les champs</div>";
+        return;
+    }
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email: email,
+        password: password
+    });
+
+    if(error){
+        message.innerHTML = "<div class='error'>Email ou mot de passe incorrect</div>";
+        return;
+    }
+
+    window.location.href = "home.html";
+}
+</script>
+
+</body>
+</html>
