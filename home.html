@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Accueil - GAINMAX</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial, sans-serif;
+    background:#F3F4F6;
+    padding-bottom:70px;
+}
+.header{
+    background:#1E3A8A;
+    color:white;
+    text-align:center;
+    padding:20px;
+    font-size:22px;
+    font-weight:bold;
+}
+.container{
+    padding:20px;
+}
+.card{
+    background:#FFFFFF;
+    padding:20px;
+    border-radius:15px;
+    box-shadow:0 5px 20px rgba(0,0,0,0.08);
+    margin-bottom:20px;
+}
+.balance{
+    font-size:28px;
+    font-weight:bold;
+    color:#1E3A8A;
+}
+.income{
+    color:#16A34A;
+    font-weight:bold;
+}
+.grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:15px;
+}
+.card-btn{
+    background:#FFFFFF;
+    padding:25px 10px;
+    text-align:center;
+    border-radius:15px;
+    box-shadow:0 5px 20px rgba(0,0,0,0.08);
+    font-weight:bold;
+    color:#1E3A8A;
+    cursor:pointer;
+}
+.card-btn:hover{
+    background:#E5E7EB;
+}
+.bottom-nav{
+    position:fixed;
+    bottom:0;
+    width:100%;
+    background:white;
+    display:flex;
+    justify-content:space-around;
+    padding:12px 0;
+    box-shadow:0 -3px 10px rgba(0,0,0,0.05);
+}
+.bottom-nav div{
+    font-weight:bold;
+    color:#1E3A8A;
+    cursor:pointer;
+}
+.user-id{
+    font-size:12px;
+    color:#6B7280;
+}
+</style>
+</head>
+<body>
+
+<div class="header">GAINMAX</div>
+
+<div class="container">
+
+    <div class="card">
+        <div class="user-id" id="userId"></div>
+        <p>Solde disponible :</p>
+        <div class="balance" id="solde">0 XOF</div>
+        <p>Total revenus :</p>
+        <div class="income" id="income">0 XOF</div>
+    </div>
+
+    <div class="grid">
+        <div class="card-btn" id="btnRecharge">💳 Recharge</div>
+        <div class="card-btn" id="btnRetrait">🏦 Retrait</div>
+        <div class="card-btn" id="btnEquipe">👥 Mon Équipe</div>
+        <div class="card-btn" id="btnProduit">📦 Produit</div>
+    </div>
+
+</div>
+
+<div class="bottom-nav">
+  <div onclick="window.location.href='home.html'">Home</div>
+  <div onclick="window.location.href='product.html'">Produit</div>
+  <div onclick="window.location.href='team.html'">Équipe</div>
+  <div onclick="window.location.href='account.html'">Compte</div>
+</div>
+
+<script>
+const supabaseClient = supabase.createClient(
+    "https://hgtocdujbusilyfycxvx.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhndG9jZHVqYnVzaWx5ZnljeHZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3Njc2MTAsImV4cCI6MjA4NzM0MzYxMH0.MKmNXPIX3lrJK8S2Vfm20wEOaDhvjBMag8CUQVebglE"
+);
+
+// ----------- NAVIGATION (toujours active) -----------
+document.addEventListener("DOMContentLoaded", function(){
+
+    document.getElementById("btnRecharge").onclick = function(){
+        window.location.href = "recharge.html";
+    };
+
+    document.getElementById("btnRetrait").onclick = function(){
+        window.location.href = "retrait.html";
+    };
+
+    document.getElementById("btnEquipe").onclick = function(){
+        window.location.href = "team.html";
+    };
+
+    document.getElementById("btnProduit").onclick = function(){
+        window.location.href = "product.html";
+    };
+
+});
+
+// ----------- SESSION + PROFIL -----------
+document.addEventListener("DOMContentLoaded", async function(){
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+
+    if(!session){
+        window.location.href = "index.html";
+        return;
+    }
+
+    const user = session.user;
+
+    const maskedId = user.id.substring(0,6) + "****";
+    document.getElementById("userId").innerText = "ID : " + maskedId;
+
+    try{
+        const { data: profile } = await supabaseClient
+            .from("profiles")
+            .select("solde,total_income")
+            .eq("id", user.id)
+            .single();
+
+        if(profile){
+            document.getElementById("solde").innerText = profile.solde + " XOF";
+            document.getElementById("income").innerText = profile.total_income + " XOF";
+        }
+    } catch(e){
+        console.log("Erreur chargement profil");
+    }
+
+});
+</script>
+
+</body>
+</html>

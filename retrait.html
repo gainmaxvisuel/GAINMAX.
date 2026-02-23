@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retrait - GAINMAX</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial;
+    background:#F3F4F6;
+}
+.header{
+    background:#1E3A8A;
+    color:white;
+    text-align:center;
+    padding:18px;
+    font-weight:bold;
+}
+.container{
+    padding:20px;
+}
+.card{
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 5px 20px rgba(0,0,0,0.08);
+}
+input{
+    width:100%;
+    padding:12px;
+    margin-top:15px;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+button{
+    width:100%;
+    padding:12px;
+    margin-top:20px;
+    background:#1E3A8A;
+    color:white;
+    border:none;
+    border-radius:8px;
+    font-weight:bold;
+    cursor:pointer;
+}
+button:hover{
+    background:#3B82F6;
+}
+
+/* ALERTES PRO */
+.alert{
+    padding:14px;
+    border-radius:8px;
+    margin-bottom:15px;
+    font-weight:bold;
+    animation:fadeIn 0.3s ease;
+}
+.alert-success{
+    background:#DCFCE7;
+    color:#166534;
+}
+.alert-error{
+    background:#FEE2E2;
+    color:#991B1B;
+}
+.alert-loading{
+    background:#DBEAFE;
+    color:#1E40AF;
+}
+
+@keyframes fadeIn{
+    from{opacity:0; transform:translateY(-5px);}
+    to{opacity:1; transform:translateY(0);}
+}
+
+/* MODAL */
+.modal{
+    display:none;
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.5);
+    justify-content:center;
+    align-items:center;
+}
+.modal-content{
+    background:white;
+    padding:25px;
+    width:90%;
+    border-radius:12px;
+    text-align:center;
+}
+.modal-buttons{
+    display:flex;
+    justify-content:space-between;
+    margin-top:20px;
+}
+.btn-cancel{
+    background:#DC2626;
+}
+.btn-confirm{
+    background:#16A34A;
+}
+</style>
+</head>
+<body>
+
+<div class="header">Retrait</div>
+
+<div class="container">
+<div class="card">
+
+<div id="message"></div>
+
+<input type="number" id="montant" placeholder="Montant (1500 - 6000000)">
+<input type="text" id="nom" placeholder="Nom complet">
+<input type="text" id="numero" placeholder="Numéro Mobile Money">
+
+<button onclick="openConfirm()">Valider retrait</button>
+
+</div>
+</div>
+
+<!-- MODAL CONFIRMATION -->
+<div class="modal" id="confirmModal">
+<div class="modal-content">
+<h3>Confirmer le retrait</h3>
+<p id="confirmText"></p>
+<div class="modal-buttons">
+<button class="btn-cancel" onclick="closeConfirm()">Annuler</button>
+<button class="btn-confirm" onclick="submitRetrait()">Confirmer</button>
+</div>
+</div>
+</div>
+
+<script>
+const supabaseClient = supabase.createClient(
+    "https://hgtocdujbusilyfycxvx.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhndG9jZHVqYnVzaWx5ZnljeHZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3Njc2MTAsImV4cCI6MjA4NzM0MzYxMH0.MKmNXPIX3lrJK8S2Vfm20wEOaDhvjBMag8CUQVebglE"
+);
+
+function showMessage(text,type){
+    const message = document.getElementById("message");
+    message.innerHTML = `<div class="alert alert-${type}">${text}</div>`;
+}
+
+function openConfirm(){
+
+    const montant = document.getElementById("montant").value;
+    const nom = document.getElementById("nom").value;
+    const numero = document.getElementById("numero").value;
+
+    if(!montant || !nom || !numero){
+        showMessage("Veuillez remplir tous les champs.","error");
+        return;
+    }
+
+    document.getElementById("confirmText").innerHTML =
+    `Vous demandez un retrait de <strong>${montant} XOF</strong> vers le numéro <strong>${numero}</strong>.<br><br>
+    Cette opération sera traitée sous 24 à 48 heures.<br><br>
+    Confirmez-vous cette demande ?`;
+
+    document.getElementById("confirmModal").style.display="flex";
+}
+
+function closeConfirm(){
+    document.getElementById("confirmModal").style.display="none";
+}
+
+async function submitRetrait(){
+
+    closeConfirm();
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if(!session){
+        window.location.href = "index.html";
+        return;
+    }
+
+    const user = session.user;
+    const montant = parseFloat(document.getElementById("montant").value);
+    const nom = document.getElementById("nom").value.trim();
+    const numero = document.getElementById("numero").value.trim();
+
+    showMessage("Vérification en cours...","loading");
+
+    const { data: profile } = await supabaseClient
+        .from("profiles")
+        .select("solde")
+        .eq("id", user.id)
+        .single();
+
+    if(!profile){
+        showMessage("Profil introuvable.","error");
+        return;
+    }
+
+    if(profile.solde < montant){
+        showMessage("Solde insuffisant pour effectuer ce retrait.","error");
+        return;
+    }
+
+    const { data: orders } = await supabaseClient
+        .from("orders")
+        .select("id")
+        .eq("user_id", user.id);
+
+    if(!orders || orders.length === 0){
+        showMessage("Aucun investissement VIP actif.","error");
+        return;
+    }
+
+    await supabaseClient
+        .from("profiles")
+        .update({ solde: profile.solde - montant })
+        .eq("id", user.id);
+
+    const { error } = await supabaseClient
+        .from("withdrawals")
+        .insert({
+            user_id: user.id,
+            nom: nom,
+            numero: numero,
+            montant: montant,
+            status: "EN_ATTENTE"
+        });
+
+    if(error){
+        showMessage("Erreur lors de l'enregistrement de la demande.","error");
+        return;
+    }
+
+    showMessage("Demande envoyée avec succès. Traitement sous 24 à 48 heures.","success");
+
+    document.getElementById("montant").value = "";
+    document.getElementById("nom").value = "";
+    document.getElementById("numero").value = "";
+}
+</script>
+
+</body>
+</html>

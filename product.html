@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Produits VIP - GAINMAX</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body{
+margin:0;
+font-family:Arial, sans-serif;
+background:#F3F4F6;
+padding-bottom:90px;
+}
+
+.header{
+background:#1E3A8A;
+color:white;
+text-align:center;
+padding:18px;
+font-size:18px;
+font-weight:bold;
+}
+
+.container{
+padding:20px;
+}
+
+.card{
+background:white;
+padding:20px;
+border-radius:16px;
+margin-bottom:15px;
+box-shadow:0 8px 25px rgba(0,0,0,0.08);
+}
+
+button{
+width:100%;
+padding:13px;
+background:#1E3A8A;
+color:white;
+border:none;
+border-radius:10px;
+margin-top:12px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.bottom-menu{
+position:fixed;
+bottom:0;
+width:100%;
+background:white;
+display:flex;
+justify-content:space-around;
+padding:14px 0;
+box-shadow:0 -4px 15px rgba(0,0,0,0.1);
+}
+
+.bottom-menu a{
+text-decoration:none;
+color:#1E3A8A;
+font-weight:bold;
+font-size:14px;
+}
+
+.modal{
+display:none;
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.45);
+justify-content:center;
+align-items:center;
+z-index:1000;
+}
+
+.modal-box{
+background:white;
+width:90%;
+max-width:380px;
+padding:25px;
+border-radius:18px;
+text-align:center;
+}
+
+.modal-buttons{
+display:flex;
+gap:12px;
+margin-top:20px;
+}
+
+.modal-buttons button{
+flex:1;
+}
+
+.cancel-btn{
+background:#E5E7EB;
+color:black;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">Plans VIP</div>
+
+<div class="container">
+<div id="products"></div>
+</div>
+
+<div class="bottom-menu">
+<a href="home.html">Home</a>
+<a href="product.html">Produit</a>
+<a href="team.html">Équipe</a>
+<a href="account.html">Compte</a>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div id="confirmModal" class="modal">
+<div class="modal-box">
+<h3>Confirmation d'achat</h3>
+<p>Voulez-vous activer ce plan VIP ?</p>
+<div class="modal-buttons">
+<button class="cancel-btn" onclick="closeConfirm()">Annuler</button>
+<button onclick="confirmPurchase()">Confirmer</button>
+</div>
+</div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<div id="successModal" class="modal">
+<div class="modal-box">
+<h3>Activation réussie</h3>
+<p style="color:#16A34A;font-weight:bold;">VIP activé avec succès</p>
+<button onclick="goOrders()">Voir ma commande</button>
+<button style="margin-top:10px;background:#3B82F6;" onclick="goHome()">Retour accueil</button>
+</div>
+</div>
+</div>
+
+<script>
+
+const supabaseClient = supabase.createClient(
+"https://hgtocdujbusilyfycxvx.supabase.co",
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhndG9jZHVqYnVzaWx5ZnljeHZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3Njc2MTAsImV4cCI6MjA4NzM0MzYxMH0.MKmNXPIX3lrJK8S2Vfm20wEOaDhvjBMag8CUQVebglE"
+);
+
+let currentPurchase=null;
+
+document.addEventListener("DOMContentLoaded", async()=>{
+
+const { data:{ session } }=await supabaseClient.auth.getSession();
+if(!session){
+window.location.href="index.html";
+return;
+}
+
+const { data:products,error }=await supabaseClient
+.from("products")
+.select("*")
+.order("price",{ascending:true});
+
+if(error){
+alert("Erreur chargement produits");
+return;
+}
+
+const container=document.getElementById("products");
+
+products.forEach(product=>{
+container.innerHTML+=`
+<div class="card">
+<h3>${product.name}</h3>
+<p><strong>Prix :</strong> ${product.price} XOF</p>
+<p><strong>Revenu journalier :</strong> ${product.daily_income} XOF</p>
+<p><strong>Total :</strong> ${product.total_income} XOF</p>
+<button onclick="preparePurchase('${product.id}',${product.price},${product.daily_income},${product.total_income},${product.duration_days})">
+Acheter
+</button>
+</div>
+`;
+});
+
+});
+
+async function preparePurchase(product_id,price,daily_income,total_income,duration_days){
+
+const { data:{ session } }=await supabaseClient.auth.getSession();
+const user=session.user;
+
+const { data:profile,error }=await supabaseClient
+.from("profiles")
+.select("*")
+.eq("id",user.id)
+.single();
+
+if(error){
+alert("Erreur profil");
+return;
+}
+
+if(profile.solde<price){
+alert("Solde insuffisant");
+return;
+}
+
+currentPurchase={
+user_id:user.id,
+product_id,
+price,
+daily_income,
+total_income,
+duration_days
+};
+
+document.getElementById("confirmModal").style.display="flex";
+}
+
+function closeConfirm(){
+document.getElementById("confirmModal").style.display="none";
+}
+
+async function confirmPurchase(){
+
+if(!currentPurchase) return;
+
+const data=currentPurchase;
+
+const { data:profile }=await supabaseClient
+.from("profiles")
+.select("*")
+.eq("id",data.user_id)
+.single();
+
+if(profile.solde < data.price){
+alert("Solde insuffisant");
+return;
+}
+
+// 1️⃣ Déduction solde + has_invested
+const { error:updateError } = await supabaseClient
+.from("profiles")
+.update({
+  solde: profile.solde - data.price,
+  has_invested: true
+})
+.eq("id",data.user_id);
+
+if(updateError){
+alert("Erreur mise à jour solde");
+return;
+}
+
+// 2️⃣ Création order correcte
+const { error:orderError } = await supabaseClient
+.from("orders")
+.insert({
+  user_id: data.user_id,
+  product_id: data.product_id,
+  amount: data.price,
+  daily_income: data.daily_income,
+  total_income: data.total_income,
+  start_date: new Date(),
+  end_date: new Date(Date.now()+data.duration_days*24*60*60*1000),
+  is_active: true,
+  claimed_amount: 0,
+  claimed_days: 0
+});
+
+if(orderError){
+alert("Erreur création VIP");
+return;
+}
+
+closeConfirm();
+document.getElementById("successModal").style.display="flex";
+}
+
+function goOrders(){
+window.location.href="account.html#orders";
+}
+
+function goHome(){
+window.location.href="home.html";
+}
+
+</script>
+
+</body>
+</html>

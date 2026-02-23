@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mon Équipe - GAINMAX</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body{
+margin:0;
+font-family:Arial, sans-serif;
+background:#F3F4F6;
+padding-bottom:100px;
+}
+
+.header{
+background:#1E3A8A;
+color:white;
+padding:20px;
+text-align:center;
+font-weight:bold;
+}
+
+.container{
+padding:20px;
+}
+
+.card{
+background:white;
+padding:18px;
+border-radius:14px;
+margin-bottom:20px;
+box-shadow:0 6px 18px rgba(0,0,0,0.06);
+}
+
+.card h3{
+margin-top:0;
+margin-bottom:15px;
+}
+
+.green{
+color:#16A34A;
+font-weight:bold;
+}
+
+button{
+width:100%;
+padding:12px;
+border:none;
+border-radius:10px;
+background:#1E3A8A;
+color:white;
+font-weight:bold;
+margin-top:10px;
+cursor:pointer;
+}
+
+button:hover{
+background:#3B82F6;
+}
+
+.copy-btn{
+background:#16A34A;
+}
+
+.bottom-menu{
+position:fixed;
+bottom:0;
+width:100%;
+background:white;
+display:flex;
+justify-content:space-around;
+padding:14px 0;
+box-shadow:0 -4px 15px rgba(0,0,0,0.1);
+}
+
+.bottom-menu a{
+text-decoration:none;
+color:#1E3A8A;
+font-weight:bold;
+font-size:14px;
+}
+
+/* TOAST */
+.toast{
+position:fixed;
+bottom:90px;
+left:50%;
+transform:translateX(-50%);
+background:#1E3A8A;
+color:white;
+padding:12px 20px;
+border-radius:30px;
+font-size:14px;
+box-shadow:0 6px 18px rgba(0,0,0,0.2);
+opacity:0;
+pointer-events:none;
+transition:all 0.4s ease;
+z-index:999;
+}
+
+.toast.show{
+opacity:1;
+bottom:110px;
+}
+</style>
+</head>
+<body>
+
+<div class="header">MON ÉQUIPE</div>
+
+<div class="container">
+
+<div class="card">
+<h3>🎯 Mon code de parrainage</h3>
+<p id="refCode" style="font-size:16px;font-weight:bold;"></p>
+<button class="copy-btn" onclick="copyCode()">Copier le code</button>
+</div>
+
+<div class="card">
+<h3>🔗 Mon lien de parrainage</h3>
+<p id="refLink" style="word-break:break-all;"></p>
+<button class="copy-btn" onclick="copyLink()">Copier le lien</button>
+</div>
+
+<div class="card">
+<h3>📊 Statistiques</h3>
+<p>Nombre de filleuls : <span class="green" id="totalReferrals">0</span></p>
+<p>Total commissions gagnées : <span class="green" id="totalCommissions">0 XOF</span></p>
+</div>
+
+<div class="card">
+<h3>👥 Mes filleuls</h3>
+<div id="referralsList"></div>
+</div>
+
+</div>
+
+<div class="bottom-menu">
+<a href="home.html">Home</a>
+<a href="product.html">Produit</a>
+<a href="team.html">Équipe</a>
+<a href="account.html">Compte</a>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+
+const supabaseClient = supabase.createClient(
+"https://hgtocdujbusilyfycxvx.supabase.co",
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhndG9jZHVqYnVzaWx5ZnljeHZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3Njc2MTAsImV4cCI6MjA4NzM0MzYxMH0.MKmNXPIX3lrJK8S2Vfm20wEOaDhvjBMag8CUQVebglE"
+);
+
+let currentUserId = null;
+let currentRefCode = null;
+
+document.addEventListener("DOMContentLoaded", async()=>{
+
+const { data:{ session } } = await supabaseClient.auth.getSession();
+if(!session){
+window.location.href="index.html";
+return;
+}
+
+const user = session.user;
+currentUserId = user.id;
+
+// 🔥 récupérer le vrai code de parrainage
+const { data: profile } = await supabaseClient
+.from("profiles")
+.select("ref_code")
+.eq("id", user.id)
+.single();
+
+if(!profile){
+alert("Erreur profil introuvable");
+return;
+}
+
+currentRefCode = profile.ref_code;
+
+// afficher code
+document.getElementById("refCode").innerText = currentRefCode;
+
+// générer lien automatiquement selon ton domaine Vercel
+const baseUrl = window.location.origin;
+const referralLink = `${baseUrl}/register.html?ref=${currentRefCode}`;
+document.getElementById("refLink").innerText = referralLink;
+
+loadReferrals(user.id);
+loadCommissions(user.id);
+
+});
+
+function showToast(message){
+const toast = document.getElementById("toast");
+toast.innerText = message;
+toast.classList.add("show");
+
+setTimeout(()=>{
+toast.classList.remove("show");
+},2000);
+}
+
+function copyCode(){
+navigator.clipboard.writeText(currentRefCode);
+showToast("✅ Code copié avec succès");
+}
+
+function copyLink(){
+navigator.clipboard.writeText(
+document.getElementById("refLink").innerText
+);
+showToast("✅ Lien copié avec succès");
+}
+
+async function loadReferrals(userId){
+
+const { data: referrals } = await supabaseClient
+.from("profiles")
+.select("id")
+.eq("parrain_id", userId);
+
+const container = document.getElementById("referralsList");
+container.innerHTML = "";
+
+if(!referrals || referrals.length===0){
+container.innerHTML = "<p>Aucun filleul.</p>";
+document.getElementById("totalReferrals").innerText = 0;
+return;
+}
+
+document.getElementById("totalReferrals").innerText = referrals.length;
+
+referrals.forEach(r=>{
+const masked = r.id.slice(0,4)+"****";
+container.innerHTML += `<p>ID : ${masked}</p>`;
+});
+
+}
+
+async function loadCommissions(userId){
+
+const { data: referrals } = await supabaseClient
+.from("profiles")
+.select("id")
+.eq("parrain_id", userId);
+
+if(!referrals || referrals.length===0){
+document.getElementById("totalCommissions").innerText="0 XOF";
+return;
+}
+
+const referralIds = referrals.map(r=>r.id);
+
+const { data: orders } = await supabaseClient
+.from("orders")
+.select("amount, user_id")
+.eq("is_first_investment", true);
+
+let total = 0;
+
+if(orders){
+orders.forEach(order=>{
+if(referralIds.includes(order.user_id)){
+total += order.amount * 0.26;
+}
+});
+}
+
+document.getElementById("totalCommissions").innerText = total+" XOF";
+
+}
+
+</script>
+
+</body>
+</html>
